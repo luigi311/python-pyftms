@@ -7,6 +7,7 @@ import logging
 from typing import cast
 
 from bleak import BleakClient
+from bleak.exc import BleakDBusError
 from bleak.backends.characteristic import BleakGATTCharacteristic
 
 from ...models import (
@@ -115,7 +116,13 @@ class MachineController:
             return
 
         if c := cli.services.get_characteristic(TRAINING_STATUS_UUID):
-            self._on_training_status(c, await cli.read_gatt_char(c))
+            try:
+                value = await cli.read_gatt_char(c)
+                self._on_training_status(c, value)
+            except BleakDBusError as e:
+                _LOGGER.warning(
+                    "Failed to read training status on subscribe: %s", e
+                )
             await cli.start_notify(c, self._on_training_status)
 
         if c := cli.services.get_characteristic(STATUS_UUID):
