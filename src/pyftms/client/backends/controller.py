@@ -7,7 +7,7 @@ import logging
 from typing import cast
 
 from bleak import BleakClient
-from bleak.exc import BleakDBusError
+from bleak.exc import BleakGATTProtocolError, BleakGATTProtocolErrorCode
 from bleak.backends.characteristic import BleakGATTCharacteristic
 
 from ...models import (
@@ -119,10 +119,13 @@ class MachineController:
             try:
                 value = await cli.read_gatt_char(c)
                 self._on_training_status(c, value)
-            except BleakDBusError as e:
-                _LOGGER.warning(
-                    "Failed to read training status on subscribe: %s", e
-                )
+            except BleakGATTProtocolError as e:
+                if e.code == BleakGATTProtocolErrorCode.READ_NOT_PERMITTED:
+                    _LOGGER.warning(
+                        "Failed to read training status on subscribe: %s", e
+                    )
+                else:
+                    raise
             await cli.start_notify(c, self._on_training_status)
 
         if c := cli.services.get_characteristic(STATUS_UUID):
